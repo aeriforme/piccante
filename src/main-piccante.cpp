@@ -199,7 +199,10 @@ int main(int narg, char **args)
 
     current.setAllValuesToZero();
     for (spec_iterator = species.begin(); spec_iterator != species.end(); spec_iterator++) {
-      (*spec_iterator)->current_deposition_standard(&current);
+        /*if(!(grid.istep % 100) ) {
+                (*spec_iterator)->particle_reordering(&grid);
+        }*/
+        (*spec_iterator)->current_deposition_standard(&current);
     }
     current.pbc();
 

@@ -23,6 +23,7 @@
 //IMPORTANT! "preproc_defs.h" to be included as VERY FIRST
 #include "preproc_defs.h"
 
+#include <omp.h>
 #include <mpi.h>
 #include "commons.h"
 #include "grid.h"
@@ -42,15 +43,20 @@
 class CURRENT {
 public:
   double *getDataPointer();
+  double **getJXaux();
+  double **getJYaux();
+  double **getJZaux();
   void writeN_grid(int *N_grid);
   int Ncomp; // N grid point including ghost cells,N_grid[0]*N_grid[1]*N_grid[2], comp number
   //double max_value[6],min_value[6];  //12 utility values
+  double **JXaux, **JYaux, **JZaux;
 
   CURRENT();
   ~CURRENT();
   void allocate(GRID *grid); //field allocation
   void reallocate();  //REALLOCATION only if load balancing is introduced
   void setAllValuesToZero();
+  void setAuxValuesToZero();
   CURRENT operator = (CURRENT &destro);
 
   integer_or_halfinteger getJCoords(int c);

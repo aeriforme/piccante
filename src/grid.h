@@ -23,6 +23,7 @@
 //IMPORTANT! "preproc_defs.h" to be included as VERY FIRST
 #include "preproc_defs.h"
 
+#include<omp.h>
 #include <mpi.h>
 #include "commons.h"
 #include "structures.h"
@@ -178,6 +179,7 @@ public:
   bool isRadiationFrictionEnabled();
   void setLambda0(double lambda0);
   double getLambda0();
+  const int getNumberOfThreads();
 
 private:
   int dimensions;
@@ -199,6 +201,9 @@ private:
 
   double totalTime;
   bool withMovingWindow;
+
+  const int Nthreads = omp_get_max_threads();
+
   // =========== STRETCHED GRID ========
   bool flagLeftStretchedAlong[3], flagRightStretchedAlong[3];
   bool flagStretchedAlong[3], flagStretched;

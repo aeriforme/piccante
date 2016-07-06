@@ -25,6 +25,8 @@
 
 #include <omp.h>
 #include <mpi.h>
+#include <vector>
+#include <algorithm>
 #include "commons.h"
 #include "structures.h"
 #include "grid.h"
@@ -100,8 +102,10 @@ public:
   void add_momenta(my_rng_generator& ext_rng, double uxin, double uyin, double uzin, tempDistrib distribution);
   int particle_partition(double pivotValue, int left, int right);
   void particle_reordering(GRID * grid);
+  void sumJAux(CURRENT * current);
   void current_deposition_standard(CURRENT *current);
   void current_deposition_standard_omp_atom(CURRENT *current);
+  void current_deposition_standard_omp_jaux(CURRENT *current);
   void currentStretchedDepositionStandard(CURRENT *current);
   void density_deposition_standard(CURRENT *current, bool withSign);
   void densityStretchedDepositionStandard(CURRENT *current, bool withSign);

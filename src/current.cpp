@@ -28,6 +28,14 @@ CURRENT::CURRENT()
 CURRENT::~CURRENT()
 {
   free(val);
+  for(int i=0; i<mygrid->getNumberOfThreads(); i++){
+    delete [] JXaux[i];
+    delete [] JYaux[i];
+    delete [] JZaux[i];
+  }
+  delete [] JXaux;
+  delete [] JYaux;
+  delete [] JZaux;
 }
 
 
@@ -46,6 +54,15 @@ void CURRENT::allocate(GRID *grid) //field allocation
   val = (double *)malloc(Ntot*Ncomp*sizeof(double));
   allocated = 1;
 #endif
+  const int Nthreads = mygrid->getNumberOfThreads();
+  JXaux = new double * [Nthreads];
+  JYaux = new double * [Nthreads];
+  JZaux = new double * [Nthreads];
+  for (int i=0; i<Nthreads; i++){
+    JXaux[i] = new double [Ntot];
+    JYaux[i] = new double [Ntot];
+    JZaux[i] = new double [Ntot];
+  }
 }
 //REALLOCATION only if load balancing is introduced
 void CURRENT::reallocate()
@@ -80,6 +97,23 @@ void CURRENT::setAllValuesToZero()  //set all the values to zero
   }
 }
 
+void CURRENT::setAuxValuesToZero()
+{
+  const int Nthreads = mygrid->getNumberOfThreads();
+  if(allocated)
+  {
+    for(int i=0;i<Nthreads;i++){
+      for(int j=0;j<N_grid[0]*N_grid[1]*N_grid[2];j++){
+        JXaux[i][j] = 0.0;
+        JYaux[i][j] = 0.0;
+        JZaux[i][j] = 0.0;
+      }
+    }
+  }
+  else
+    return;
+}
+
 CURRENT CURRENT::operator = (CURRENT &destro)
 {
   if (!destro.allocated) {
@@ -98,6 +132,15 @@ CURRENT CURRENT::operator = (CURRENT &destro)
 
 double *CURRENT::getDataPointer() {
   return val;
+}
+double **CURRENT::getJXaux(){
+  return JXaux;
+}
+double **CURRENT::getJYaux(){
+  return JYaux;
+}
+double **CURRENT::getJZaux(){
+  return JZaux;
 }
 
 void CURRENT::writeN_grid(int *N_grid) {
