@@ -23,6 +23,7 @@
 //IMPORTANT! "preproc_defs.h" to be included as VERY FIRST
 #include "preproc_defs.h"
 
+#include <omp.h>
 #include <mpi.h>
 #include "commons.h"
 #include "structures.h"
@@ -88,6 +89,7 @@ public:
   void position_parallel_pbc();
   void position_obc();
   void momenta_advance(EM_FIELD *ebfield);
+  void momenta_advance_omp(EM_FIELD *ebfield);
   void momentaStretchedAdvance(EM_FIELD *ebfield);
   void momentaStretchedAdvance(EM_FIELD *ebfield, EM_FIELD *externalFields);
   void momenta_advance_with_friction(EM_FIELD *ebfield, double lambda);
