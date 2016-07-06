@@ -106,6 +106,7 @@ public:
   void current_deposition_standard(CURRENT *current);
   void current_deposition_standard_omp_atom(CURRENT *current);
   void current_deposition_standard_omp_jaux(CURRENT *current);
+  void current_deposition_esirkepov(CURRENT *current);
   void currentStretchedDepositionStandard(CURRENT *current);
   void density_deposition_standard(CURRENT *current, bool withSign);
   void densityStretchedDepositionStandard(CURRENT *current, bool withSign);
