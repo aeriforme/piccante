@@ -87,6 +87,7 @@ public:
   void init_output_extrems(std::ofstream &ff);
   void output_extrems(int istep, std::ofstream &ff);
   void position_parallel_pbc();
+  void position_parallel_pbc_omp();
   void position_obc();
   void momenta_advance(EM_FIELD *ebfield);
   void momenta_advance_omp(EM_FIELD *ebfield);

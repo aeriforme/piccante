@@ -1066,6 +1066,197 @@ void SPECIE::position_parallel_pbc()
   free(recv_buffer);
 }
 
+void SPECIE::position_parallel_pbc_omp()
+{
+  if (mygrid->withParticles == NO||isFrozen)
+    return;
+
+  int p, c;
+  int nlost, nnew, nold;
+  int ninright, ninleft, nright, nleft;
+  ninright = ninleft = nright = nleft = 0;
+  int Nthreads = omp_get_max_threads();
+  int * nright_loc, * nleft_loc;
+  nright_loc = new int [Nthreads];
+  nleft_loc = new int [Nthreads];
+
+  double *sendr_buffer = NULL, *sendl_buffer = NULL, *recv_buffer = NULL;
+
+  double **sendr_buffer_loc, **sendl_buffer_loc; // buffer di ogni thread
+  sendr_buffer_loc = (double**) malloc(Nthreads*sizeof(double*));
+  sendl_buffer_loc = (double**) malloc(Nthreads*sizeof(double*));
+
+  for(int t=0; t<Nthreads;t++){
+    sendr_buffer_loc[t]=NULL;
+    sendl_buffer_loc[t]=NULL;
+  }
+  MPI_Status status;
+  int iright, ileft;
+  /*
+      si potrebbe cambiare in questo senso:
+      se una particella è persa, la scambio con l'ultima particella attiva e diminiusco di uno il numero di particelle attive
+      se anche questa è da buttare via, proseguon nella ricerca di partcielle buone con la penultima attiva fino a quando non trovo una buana
+      da sostiuire a quella in esame
+      così dicendo riduco Np_loc che è anche l'estremo del ciclo for
+
+      */
+
+
+  for (int direction = 0; direction < mygrid->getDimensionality(); direction++)
+  {
+    nlost = 0;
+    ninright = ninleft = nright = nleft = 0;
+    for(int t=0; t<Nthreads;t++){
+      nright_loc[t]=nleft_loc[t]=0;
+    }
+    double Length = (mygrid->rmax[direction] - mygrid->rmin[direction]);
+    std::vector<int> pIndexLost;
+
+#pragma omp parallel for private(p,c) schedule(auto) shared(nlost,pIndexLost,sendr_buffer_loc,sendl_buffer_loc)
+    for (p = 0; p < Np; p++)
+    {
+     const int IDthread = omp_get_thread_num();
+
+     if (pData[pIndex(direction, p, Ncomp, Np)] > mygrid->rmaxloc[direction])
+      {
+        #pragma omp critical
+        {
+          nlost++;
+          pIndexLost.push_back(p);
+        }
+        nright_loc[IDthread]++;
+
+        if (mygrid->rmyid[direction] == mygrid->rnproc[direction] - 1)
+          pData[pIndex(direction, p, Ncomp, Np)] -= Length;
+
+        sendr_buffer_loc[IDthread] = (double*)realloc(sendr_buffer_loc[IDthread], nright_loc[IDthread]*Ncomp*sizeof(double));
+
+        for (c = 0; c < Ncomp; c++)
+          sendr_buffer_loc[IDthread][c + Ncomp*(nright_loc[IDthread] - 1)] = pData[pIndex(c, p, Ncomp, Np)];
+      }
+      else if (pData[pIndex(direction, p, Ncomp, Np)] < mygrid->rminloc[direction])
+      {
+         #pragma omp critical
+        {
+          nlost++;
+          pIndexLost.push_back(p);
+        }
+        nleft_loc[IDthread]++;
+
+        if (mygrid->rmyid[direction] == 0)
+          pData[pIndex(direction, p, Ncomp, Np)] += Length;
+
+        sendl_buffer_loc[IDthread] = (double*)realloc(sendl_buffer_loc[IDthread], nleft_loc[IDthread]*Ncomp*sizeof(double));
+
+        for (c = 0; c < Ncomp; c++)
+          sendl_buffer_loc[IDthread][c + Ncomp*(nleft_loc[IDthread] - 1)] = pData[pIndex(c, p, Ncomp, Np)];
+      }
+
+      /*else
+      {
+        for (c = 0; c < Ncomp; c++)
+          pData[pIndex(c, (p - nlost), Ncomp, Np)] = pData[pIndex(c, p, Ncomp, Np)];
+          }*/
+    }
+
+    std::sort(pIndexLost.begin(),pIndexLost.end());
+
+    int q = Np;
+    int j = pIndexLost.size();
+
+    for(int i = 0; i < pIndexLost.size(); i++){
+      while(j-1>=0 && q-1>pIndexLost[i]){
+        if(q-1 != pIndexLost[j-1]){
+          for(c=0;c<Ncomp;c++)
+            pData[pIndex(c,pIndexLost[i],Ncomp,Np)] = pData[pIndex(c,q-1,Ncomp,Np)];
+          q--;
+          break;
+        }else{
+          q--;
+          j--;
+        }
+      }
+    }
+
+     for(int t=0; t<Nthreads;t++){
+      nright += nright_loc[t];
+      nleft += nleft_loc[t];
+    }
+
+    sendr_buffer = (double*)realloc(sendr_buffer, nright*Ncomp*sizeof(double));
+    int index = 0;
+    for (int t=0; t<Nthreads;t++){
+      for(int i=0; i<nright_loc[t]*Ncomp;i++){
+        sendr_buffer[i+index] = sendr_buffer_loc[t][i];
+      }
+      index+=nright_loc[t]*Ncomp;
+    }
+    index = 0;
+    sendl_buffer = (double*)realloc(sendl_buffer, nleft*Ncomp*sizeof(double));
+    for (int t=0; t<Nthreads;t++){
+      for(int i=0; i<nleft_loc[t]*Ncomp;i++){
+        sendl_buffer[i+index] = sendl_buffer_loc[t][i];
+      }
+      index+=nleft_loc[t]*Ncomp;
+    }
+
+    MPI_Cart_shift(mygrid->cart_comm, direction, 1, &ileft, &iright);
+    // ====== send right receive from left
+    ninleft = 0;
+    MPI_Sendrecv(&nright, 1, MPI_INT, iright, 13,
+      &ninleft, 1, MPI_INT, ileft, 13,
+      MPI_COMM_WORLD, &status);
+    nnew = ninleft;
+
+    // ====== send left receive from right
+    ninright = 0;
+    MPI_Sendrecv(&nleft, 1, MPI_INT, ileft, 13,
+      &ninright, 1, MPI_INT, iright, 13,
+      MPI_COMM_WORLD, &status);
+    nnew += ninright;
+    recv_buffer = (double*)realloc(recv_buffer, nnew*Ncomp*sizeof(double));
+    // ====== send right receive from left
+    MPI_Sendrecv(sendr_buffer, nright*Ncomp, MPI_DOUBLE, iright, 13,
+      recv_buffer, ninleft*Ncomp, MPI_DOUBLE, ileft, 13,
+      MPI_COMM_WORLD, &status);
+    MPI_Sendrecv(sendl_buffer, nleft*Ncomp, MPI_DOUBLE, ileft, 13,
+      (recv_buffer + ninleft*Ncomp), ninright*Ncomp, MPI_DOUBLE, iright, 13,
+      MPI_COMM_WORLD, &status);
+    nold = Np;
+    Np = Np - nlost + nnew;
+
+
+    reallocate_species();
+
+    for (int pp = 0; pp < nnew; pp++) {
+      for (c = 0; c < Ncomp; c++) {
+//        pData[c + (pp + nold - nlost)*Ncomp] = recv_buffer[pp*Ncomp + c];
+
+        pData[pIndex(c, (pp + nold - nlost), Ncomp, Np)] = recv_buffer[pp*Ncomp + c];
+
+
+      }
+    }
+  }
+
+
+  delete [] nright_loc;
+  delete [] nleft_loc;
+
+  for(int t=0; t<Nthreads;t++){
+    free(sendr_buffer_loc[t]);
+    free(sendl_buffer_loc[t]);
+  }
+  free(sendr_buffer_loc);
+  free(sendl_buffer_loc);
+
+
+  free(sendl_buffer);
+  free(sendr_buffer);
+  free(recv_buffer);
+}
+
+
 void SPECIE::position_obc()
 {
   if (mygrid->withParticles == NO||isFrozen)
