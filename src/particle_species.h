@@ -98,7 +98,10 @@ public:
   void current_deposition(CURRENT *current);
   void add_momenta(double uxin, double uyin, double uzin);
   void add_momenta(my_rng_generator& ext_rng, double uxin, double uyin, double uzin, tempDistrib distribution);
+  int particle_partition(double pivotValue, int left, int right);
+  void particle_reordering(GRID * grid);
   void current_deposition_standard(CURRENT *current);
+  void current_deposition_standard_omp_atom(CURRENT *current);
   void currentStretchedDepositionStandard(CURRENT *current);
   void density_deposition_standard(CURRENT *current, bool withSign);
   void densityStretchedDepositionStandard(CURRENT *current, bool withSign);
