@@ -1652,7 +1652,7 @@ bool GRID::isRadiationFrictionEnabled() {
   return radiationFrictionFlag;
 }
 
-const int GRID::getNumberOfThreads(){
+int GRID::getNumberOfThreads(){
   return Nthreads;
 }
 

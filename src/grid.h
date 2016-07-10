@@ -179,7 +179,7 @@ public:
   bool isRadiationFrictionEnabled();
   void setLambda0(double lambda0);
   double getLambda0();
-  const int getNumberOfThreads();
+  int getNumberOfThreads();
 
 private:
   int dimensions;
